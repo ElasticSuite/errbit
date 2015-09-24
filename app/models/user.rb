@@ -34,21 +34,16 @@ class User
   ### Token_authenticatable
   field :authentication_token, :type => String
 
+  index :authentication_token => 1
 
   before_save :ensure_authentication_token
 
   validates_presence_of :name
   validates_uniqueness_of :github_login, :allow_nil => true
 
-  has_many :apps, :foreign_key => 'watchers.user_id'
-
   if Errbit::Config.user_has_username
     field :username
     validates_presence_of :username
-  end
-
-  def watchers
-    apps.map(&:watchers).flatten.select {|w| w.user_id.to_s == id.to_s}
   end
 
   def per_page
@@ -78,5 +73,22 @@ class User
     self[:github_login] = login
   end
 
-end
+  def ensure_authentication_token
+    if authentication_token.blank?
+      self.authentication_token = generate_authentication_token
+    end
+  end
 
+  def self.token_authentication_key
+    :auth_token
+  end
+
+  private
+
+  def generate_authentication_token
+    loop do
+      token = Devise.friendly_token
+      break token unless User.where(authentication_token: token).first
+    end
+  end
+end

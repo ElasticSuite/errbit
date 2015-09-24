@@ -1,10 +1,11 @@
-require 'spec_helper'
-
-describe "apps/new.html.haml" do
+describe "apps/new.html.haml", type: 'view' do
   let(:app) { stub_model(App) }
+  let(:app_decorate) { AppDecorator.new(app) }
+
   before do
-    view.stub(:app).and_return(app)
-    controller.stub(:current_user) { stub_model(User) }
+    allow(view).to receive(:app).and_return(app)
+    allow(view).to receive(:app_decorate).and_return(app_decorate)
+    allow(controller).to receive(:current_user).and_return(stub_model(User))
   end
 
   describe "content_for :action_bar" do
@@ -15,7 +16,7 @@ describe "apps/new.html.haml" do
     it "should confirm the 'cancel' link" do
       render
 
-      action_bar.should have_selector('a.button', :text => 'cancel')
+      expect(action_bar).to have_selector('a.button', :text => 'cancel')
     end
 
   end
@@ -29,9 +30,7 @@ describe "apps/new.html.haml" do
 
     it 'see the error' do
       render
-      rendered.should match(/You must specify your/)
+      expect(rendered).to match(/You must specify your/)
     end
   end
-
 end
-

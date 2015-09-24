@@ -2,24 +2,27 @@ class AppsController < ApplicationController
 
   include ProblemsSearcher
 
-  before_filter :require_admin!, :except => [:index, :show]
-  before_filter :parse_email_at_notices_or_set_default, :only => [:create, :update]
-  before_filter :parse_notice_at_notices_or_set_default, :only => [:create, :update]
+  before_action :require_admin!, :except => [:index, :show]
+  before_action :parse_email_at_notices_or_set_default, :only => [:create, :update]
+  before_action :parse_notice_at_notices_or_set_default, :only => [:create, :update]
   respond_to :html
 
-  expose(:app_scope) {
-    (current_user.admin? ? App : current_user.apps)
-  }
+  expose(:app_scope) { App }
 
   expose(:apps) {
-    app_scope.all.sort
+    app_scope.asc(:name).map { |app| AppDecorator.new(app) }
   }
 
-  expose(:app, :ancestor => :app_scope)
+  expose(:app, ancestor: :app_scope, attributes: :app_params)
+
+  expose(:app_decorate) do
+    AppDecorator.new(app)
+  end
 
   expose(:all_errs) {
     !!params[:all_errs]
   }
+
   expose(:problems) {
     if request.format == :atom
       app.problems.unresolved.ordered
@@ -36,6 +39,10 @@ class AppsController < ApplicationController
     app.deploys.order_by(:created_at.desc).limit(5)
   }
 
+  expose(:users) {
+    User.all.sort_by {|u| u.name.downcase }
+  }
+
   def index; end
   def show
     app
@@ -46,7 +53,6 @@ class AppsController < ApplicationController
   end
 
   def create
-    initialize_subclassed_issue_tracker
     initialize_subclassed_notification_service
     if app.save
       redirect_to app_url(app), :flash => { :success => I18n.t('controllers.apps.flash.create.success') }
@@ -57,7 +63,6 @@ class AppsController < ApplicationController
   end
 
   def update
-    initialize_subclassed_issue_tracker
     initialize_subclassed_notification_service
     if app.save
       redirect_to app_url(app), :flash => { :success => I18n.t('controllers.apps.flash.update.success') }
@@ -80,29 +85,27 @@ class AppsController < ApplicationController
     end
   end
 
-  protected
+  def regenerate_api_key
+    app.regenerate_api_key!
+    redirect_to edit_app_path(app)
+  end
 
-    def initialize_subclassed_issue_tracker
-      # set the app's issue tracker
-      if params[:app][:issue_tracker_attributes] && tracker_type = params[:app][:issue_tracker_attributes][:type]
-        if IssueTracker.subclasses.map(&:name).concat(["IssueTracker"]).include?(tracker_type)
-          app.issue_tracker = tracker_type.constantize.new(params[:app][:issue_tracker_attributes])
-        end
-      end
-    end
+  protected
 
     def initialize_subclassed_notification_service
       # set the app's notification service
       if params[:app][:notification_service_attributes] && notification_type = params[:app][:notification_service_attributes][:type]
-        if NotificationService.subclasses.map(&:name).concat(["NotificationService"]).include?(notification_type)
-          app.notification_service = notification_type.constantize.new(params[:app][:notification_service_attributes])
+        available_notification_classes = [NotificationService] + NotificationService.subclasses
+        notification_class = available_notification_classes.detect{|c| c.name == notification_type}
+        if !notification_class.nil?
+          app.notification_service = notification_class.new(params[:app][:notification_service_attributes])
         end
       end
     end
 
     def plug_params app
       app.watchers.build if app.watchers.none?
-      app.issue_tracker = IssueTracker.new unless app.issue_tracker_configured?
+      app.issue_tracker ||= IssueTracker.new
       app.notification_service = NotificationService.new unless app.notification_service_configured?
       app.copy_attributes_from(params[:copy_attributes_from]) if params[:copy_attributes_from]
     end
@@ -137,5 +140,9 @@ class AppsController < ApplicationController
         end
       end
     end
-end
 
+  private
+    def app_params
+      params.require(:app).permit!
+    end
+end

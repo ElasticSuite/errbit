@@ -6,4 +6,3 @@
 
 production:
   uri: <%= ENV['MONGOLAB_URI'] %>
-  identity_map_enabled: true

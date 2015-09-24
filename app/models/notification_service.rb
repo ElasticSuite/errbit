@@ -3,6 +3,7 @@ class NotificationService
 
   include Rails.application.routes.url_helpers
   default_url_options[:host] = ActionMailer::Base.default_url_options[:host]
+  default_url_options[:port] = ActionMailer::Base.default_url_options[:port]
 
   field :room_id, :type => String
   field :user_id, :type => String
@@ -25,7 +26,7 @@ class NotificationService
   else
     Fields = []
   end
-       
+
   def notify_at_notices
     Errbit::Config.per_app_notify_at_notices ? super : Errbit::Config.notify_at_notices
   end
@@ -53,6 +54,6 @@ class NotificationService
   end
 
   def problem_url(problem)
-    "http://#{Errbit::Config.host}/apps/#{problem.app.id}/problems/#{problem.id}"
+    "#{Errbit::Config.protocol}://#{Errbit::Config.host}/apps/#{problem.app.id}/problems/#{problem.id}"
   end
 end

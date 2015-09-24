@@ -1,12 +1,12 @@
 module ProblemsHelper
-  def problem_confirm
-    Errbit::Config.confirm_resolve_err === false ? nil : 'Seriously?'
+  def problem_confirm(action)
+    t('problems.confirm.%s' % action) unless Errbit::Config.confirm_err_actions.eql? false
   end
 
   def truncated_problem_message(problem)
     unless (msg = problem.message).blank?
       # Truncate & insert invisible chars so that firefox can emulate 'word-wrap: break-word' CSS rule
-      truncate(msg, :length => 300).scan(/.{1,5}/).map { |s| h(s) }.join("&#8203;").html_safe
+      truncate(msg, :length => 300, :escape => false).scan(/.{1,5}/).map { |s| h(s) }.join("&#8203;").html_safe
     end
   end
 
